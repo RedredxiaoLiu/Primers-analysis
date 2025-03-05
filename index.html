@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xiaohong-引物分析工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: auto;
+        }
+        input, button {
+            margin: 10px;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 100%;
+            background: white;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+        .complement {
+            font-family: monospace;
+            white-space: pre;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: left;
+            border-left: 5px solid #007BFF;
+            margin: 10px auto;
+            max-width: 90%;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Xiaohong-引物分析工具</h2>
+        <label>上游引物：</label>
+        <input type="text" id="forwardPrimer" placeholder="输入5'-3'序列">
+        <br>
+        <label>下游引物：</label>
+        <input type="text" id="reversePrimer" placeholder="输入5'-3'序列">
+        <br>
+        <button onclick="analyzePrimers()">分析引物</button>
+        <h3>分析结果</h3>
+        <table>
+            <tr>
+                <th>引物</th>
+                <th>Tm值 (°C)</th>
+                <th>GC 含量 (%)</th>
+            </tr>
+            <tr>
+                <td>上游引物</td>
+                <td id="tmForward"></td>
+                <td id="gcForward"></td>
+            </tr>
+            <tr>
+                <td>下游引物</td>
+                <td id="tmReverse"></td>
+                <td id="gcReverse"></td>
+            </tr>
+        </table>
+        <h3>引物互补性分析</h3>
+        <pre id="selfComplementForward" class="complement"></pre>
+        <pre id="selfComplementReverse" class="complement"></pre>
+        <pre id="primerPairComplement" class="complement"></pre>
+    </div>
+    <script>
+        function calculateTm(sequence) {
+            let gcCount = (sequence.match(/[GC]/gi) || []).length;
+            let atCount = sequence.length - gcCount;
+            return 4 * gcCount + 2 * atCount; // 简单Tm计算公式
+        }
+        
+        function calculateGC(sequence) {
+            return ((sequence.match(/[GC]/gi) || []).length / sequence.length * 100).toFixed(2);
+        }
+        
+        function complement(seq) {
+            return seq.split('').reverse().map(base => {
+                switch (base) {
+                    case 'A': return 'T';
+                    case 'T': return 'A';
+                    case 'C': return 'G';
+                    case 'G': return 'C';
+                    default: return base;
+                }
+            }).join('');
+        }
+        
+        function visualizeComplement(seq1, seq2) {
+            let complementLine = '';
+            for (let i = 0; i < Math.min(seq1.length, seq2.length); i++) {
+                complementLine += (seq1[i] === seq2[i]) ? '|' : ' ';
+            }
+            return seq1 + '\n' + complementLine + '\n' + seq2;
+        }
+        
+        function analyzePrimers() {
+            let fwd = document.getElementById('forwardPrimer').value.toUpperCase();
+            let rev = document.getElementById('reversePrimer').value.toUpperCase();
+            let revComp = complement(rev);
+            
+            document.getElementById('tmForward').innerText = calculateTm(fwd);
+            document.getElementById('gcForward').innerText = calculateGC(fwd);
+            document.getElementById('tmReverse').innerText = calculateTm(rev);
+            document.getElementById('gcReverse').innerText = calculateGC(rev);
+            
+            document.getElementById('selfComplementForward').innerText = "上游引物自我互补：\n" + visualizeComplement(fwd, complement(fwd));
+            document.getElementById('selfComplementReverse').innerText = "下游引物自我互补：\n" + visualizeComplement(rev, complement(rev));
+            document.getElementById('primerPairComplement').innerText = "上下游引物互补：\n" + visualizeComplement(fwd, revComp);
+        }
+    </script>
+</body>
+</html>
