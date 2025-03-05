@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,165 +7,197 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-            background-color: #f4f4f9;
+            margin: 20px;
         }
         .container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
+            width: 80%;
             margin: auto;
         }
-        input, button {
-            margin: 10px;
-            padding: 10px;
-            font-size: 16px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-        }
-        button {
-            background-color: #007BFF;
-            color: white;
-            cursor: pointer;
-            border: none;
-        }
-        button:hover {
-            background-color: #0056b3;
+        textarea {
+            width: 100%;
+            height: 80px;
+            margin-bottom: 10px;
         }
         table {
-            margin: 20px auto;
-            border-collapse: collapse;
             width: 100%;
-            background: white;
+            border-collapse: collapse;
+            margin-bottom: 20px;
         }
         th, td {
-            border: 1px solid black;
-            padding: 10px;
-            text-align: center;
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
         }
         th {
-            background-color: #007BFF;
-            color: white;
+            background-color: #f2f2f2;
         }
-        .complement {
-            font-family: monospace;
-            white-space: pre;
-            background: #e9ecef;
+        .complement-result {
+            margin-top: 20px;
+            border: 1px solid #ddd;
             padding: 10px;
-            border-radius: 5px;
-            text-align: left;
-            border-left: 5px solid #007BFF;
-            margin: 10px auto;
-            max-width: 90%;
-            overflow-x: auto;
+        }
+        .complement-result pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .complement-result .match {
+            color: green;
+        }
+        .complement-result .mismatch {
+            color: red;
+        }
+        .complement-result .gap {
+            color: gray;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Xiaohong-引物分析工具</h2>
-        <label>上游引物：</label>
-        <input type="text" id="forwardPrimer" placeholder="输入5'-3'序列">
-        <br>
-        <label>下游引物：</label>
-        <input type="text" id="reversePrimer" placeholder="输入5'-3'序列">
-        <br>
-        <button onclick="analyzePrimers()">分析引物</button>
-        <h3>分析结果</h3>
-        <table>
+        <h1>Xiaohong-引物分析工具</h1>
+        <label for="upstream">上游引物 (5'->3'):</label><br>
+        <textarea id="upstream"></textarea><br>
+
+        <label for="downstream">下游引物 (5'->3'):</label><br>
+        <textarea id="downstream"></textarea><br>
+
+        <button onclick="analyzePrimers()">分析引物</button><br>
+
+        <h2>分析结果</h2>
+        <table id="results">
             <tr>
                 <th>引物</th>
                 <th>Tm值 (°C)</th>
-                <th>GC 含量 (%)</th>
-            </tr>
-            <tr>
-                <td>上游引物</td>
-                <td id="tmForward"></td>
-                <td id="gcForward"></td>
-            </tr>
-            <tr>
-                <td>下游引物</td>
-                <td id="tmReverse"></td>
-                <td id="gcReverse"></td>
+                <th>GC含量 (%)</th>
             </tr>
         </table>
-        <h3>引物互补性分析</h3>
-        <pre id="selfComplementForward" class="complement"></pre>
-        <pre id="selfComplementReverse" class="complement"></pre>
-        <pre id="primerPairComplement" class="complement"></pre>
+
+        <h2>互补分析</h2>
+        <div id="complementResults"></div>
     </div>
+
     <script>
+        function analyzePrimers() {
+            const upstream = document.getElementById("upstream").value.toUpperCase();
+            const downstream = document.getElementById("downstream").value.toUpperCase();
+
+            // 计算Tm值和GC含量
+            const upstreamTm = calculateTm(upstream);
+            const upstreamGC = calculateGC(upstream);
+            const downstreamTm = calculateTm(downstream);
+            const downstreamGC = calculateGC(downstream);
+
+            // 显示结果
+            const resultsTable = document.getElementById("results");
+            resultsTable.innerHTML = `
+                <tr>
+                    <th>引物</th>
+                    <th>Tm值 (°C)</th>
+                    <th>GC含量 (%)</th>
+                </tr>
+                <tr>
+                    <td>上游引物</td>
+                    <td>${upstreamTm.toFixed(2)}</td>
+                    <td>${upstreamGC.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>下游引物</td>
+                    <td>${downstreamTm.toFixed(2)}</td>
+                    <td>${downstreamGC.toFixed(2)}</td>
+                </tr>
+            `;
+
+            // 进行互补分析
+            analyzeComplement(upstream, downstream);
+        }
+
         function calculateTm(sequence) {
-            let gcCount = (sequence.match(/[GC]/gi) || []).length;
-            let atCount = sequence.length - gcCount;
-            return 4 * gcCount + 2 * atCount;
+            const gcCount = (sequence.match(/[GC]/g) || []).length;
+            const atCount = (sequence.match(/[AT]/g) || []).length;
+
+            if (sequence.length <= 14) {
+                return 4 * gcCount + 2 * atCount;
+            } else {
+                return 64.9 + 41 * (gcCount - 16.4) / sequence.length;
+            }
         }
-        
+
         function calculateGC(sequence) {
-            return ((sequence.match(/[GC]/gi) || []).length / sequence.length * 100).toFixed(2);
+            const gcCount = (sequence.match(/[GC]/g) || []).length;
+            return (gcCount / sequence.length) * 100;
         }
-        
-        function complement(seq) {
-            return seq.split('').reverse().map(base => {
+
+        function analyzeComplement(upstream, downstream) {
+            const complementResultsDiv = document.getElementById("complementResults");
+            complementResultsDiv.innerHTML = "";
+
+            // 上游自我互补
+            const upstreamSelfComplement = findBestComplement(upstream, reverseComplement(upstream));
+            displayComplementResult(complementResultsDiv, "上游引物自我互补", upstream, reverseComplement(upstream), upstreamSelfComplement);
+
+            // 下游自我互补
+            const downstreamSelfComplement = findBestComplement(downstream, reverseComplement(downstream));
+            displayComplementResult(complementResultsDiv, "下游引物自我互补", downstream, reverseComplement(downstream), downstreamSelfComplement);
+
+            // 上下游互补
+            const upstreamDownstreamComplement = findBestComplement(upstream, reverseComplement(downstream));
+            displayComplementResult(complementResultsDiv, "上下游引物互补", upstream, reverseComplement(downstream), upstreamDownstreamComplement);
+        }
+
+        function reverseComplement(sequence) {
+            return sequence.split("").reverse().map(base => {
                 switch (base) {
-                    case 'A': return 'T';
-                    case 'T': return 'A';
-                    case 'C': return 'G';
-                    case 'G': return 'C';
+                    case "A": return "T";
+                    case "T": return "A";
+                    case "C": return "G";
+                    case "G": return "C";
                     default: return base;
                 }
-            }).join('');
+            }).join("");
         }
-        
-        function findBestComplement(fwd, revComp) {
-            let maxMatches = 0;
-            let bestAlignment = "";
-            for (let offset = -revComp.length + 1; offset < fwd.length; offset++) {
-                let matchCount = 0;
-                let alignment = "";
-                for (let i = 0; i < fwd.length; i++) {
-                    let revIndex = i - offset;
-                    if (revIndex >= 0 && revIndex < revComp.length) {
-                        if ((fwd[i] === 'A' && revComp[revIndex] === 'T') || (fwd[i] === 'T' && revComp[revIndex] === 'A') || (fwd[i] === 'C' && revComp[revIndex] === 'G') || (fwd[i] === 'G' && revComp[revIndex] === 'C')) {
-                            matchCount++;
-                            alignment += "|";
-                        } else {
-                            alignment += " ";
-                        }
-                    } else {
-                        alignment += " ";
+
+        function findBestComplement(seq1, seq2) {
+            let bestMatch = { match: "", count: 0, start1: 0, start2: 0 };
+            for (let i = 0; i < seq1.length; i++) {
+                for (let j = 0; j < seq2.length; j++) {
+                    const match = getComplementMatch(seq1.substring(i), seq2.substring(j));
+                    if (match.count > bestMatch.count) {
+                        bestMatch = { match: match.match, count: match.count, start1: i, start2: j };
                     }
                 }
-                if (matchCount > maxMatches) {
-                    maxMatches = matchCount;
-                    bestAlignment = fwd + "\n" + alignment + "\n" + " ".repeat(Math.max(0, offset)) + revComp;
+            }
+            return bestMatch;
+        }
+
+        function getComplementMatch(seq1, seq2) {
+            let match = "";
+            let count = 0;
+            const minLength = Math.min(seq1.length, seq2.length);
+            for (let i = 0; i < minLength; i++) {
+                if ((seq1[i] === "A" && seq2[i] === "T") || (seq1[i] === "T" && seq2[i] === "A") ||
+                    (seq1[i] === "C" && seq2[i] === "G") || (seq1[i] === "G" && seq2[i] === "C")) {
+                    match += "<span class='match'>|</span>";
+                    count++;
+                } else {
+                    match += "<span class='mismatch'>X</span>";
                 }
             }
-            return { alignment: bestAlignment, matches: maxMatches };
+            return { match: match, count: count };
         }
-        
-        function analyzePrimers() {
-            let fwd = document.getElementById('forwardPrimer').value.toUpperCase();
-            let rev = document.getElementById('reversePrimer').value.toUpperCase();
-            let revComp = complement(rev);
-            
-            document.getElementById('tmForward').innerText = calculateTm(fwd);
-            document.getElementById('gcForward').innerText = calculateGC(fwd);
-            document.getElementById('tmReverse').innerText = calculateTm(rev);
-            document.getElementById('gcReverse').innerText = calculateGC(rev);
-            
-            let selfFwd = findBestComplement(fwd, complement(fwd));
-            document.getElementById('selfComplementForward').innerText = "上游引物自我互补：\n" + selfFwd.alignment + "\n互补碱基数: " + selfFwd.matches;
-            
-            let selfRev = findBestComplement(rev, complement(rev));
-            document.getElementById('selfComplementReverse').innerText = "下游引物自我互补：\n" + selfRev.alignment + "\n互补碱基数: " + selfRev.matches;
-            
-            let bestComplement = findBestComplement(fwd, revComp);
-            document.getElementById('primerPairComplement').innerText = "上下游引物最佳互补：\n" + bestComplement.alignment + "\n互补碱基数: " + bestComplement.matches;
+
+        function displayComplementResult(container, title, seq1, seq2, matchResult) {
+            const resultDiv = document.createElement("div");
+            resultDiv.classList.add("complement-result");
+            resultDiv.innerHTML = `
+                <h3>${title} (互补碱基对数: ${matchResult.count})</h3>
+                <pre>
+                    ${" ".repeat(matchResult.start1)}${seq1}
+                    ${" ".repeat(matchResult.start2)}${matchResult.match}
+                    ${" ".repeat(matchResult.start2)}${seq2}
+                </pre>
+            `;
+            container.appendChild(resultDiv);
         }
+
     </script>
 </body>
 </html>
